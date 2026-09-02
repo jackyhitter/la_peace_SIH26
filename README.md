@@ -14,3 +14,4 @@ Current ANPR systems largely operate in isolated silos, making it difficult to:
 * Detect blacklisted vehicles or suspicious route patterns
 
 ### Anunay Naman here👋
+### Pranjul Sahu here👋
