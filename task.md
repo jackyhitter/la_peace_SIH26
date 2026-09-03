@@ -10,14 +10,14 @@ Designed to be modular, developer-first, and raw-data oriented.
 
 - [x] **Phase 0: Repository & Tooling Setup**
   - Git, folder structure, `.gitignore`, `task.md` (keeping `README.md` untouched).
-- [ ] **Phase 1: Architecture & API Contracts**
+- [x] **Phase 1: Architecture & API Contracts**
   - Canonical JSON schemas for AI -> Backend and Backend -> Frontend (`contracts/`).
-- [ ] **Phase 2: Database & Backend Skeleton**
+- [x] **Phase 2: Database & Backend Skeleton**
   - PostGIS models, FastAPI shell, mock data generator (`backend/`).
-- [ ] **Phase 3: Frontend Skeleton (React)**
+- [x] **Phase 3: Frontend Skeleton (React)**
   - Raw black & white developer-first UI, wireframe video boxes, raw event dumps, route tabs (`frontend/`).
-- [ ] **Phase 4: AI Baseline**
-  - YOLO detection + ByteTrack tracking + PaddleOCR pipeline stubs (`ai_engine/`).
+- [x] **Phase 4: AI Baseline & Modular Analytics**
+  - YOLOv8 detection + ByteTrack persistent tracking + Plate Cropping + Speed Estimation + Virtual Lines (`ai_engine/`).
 - [ ] **Phase 5: Mock Integration**
   - Frontend rendering mock trajectories and alerts from backend/contracts.
 - [ ] **Phase 6: AI → Backend Integration**
@@ -37,43 +37,29 @@ Designed to be modular, developer-first, and raw-data oriented.
 
 ---
 
-## Architecture Layout
+## Modular AI Engine Architecture (`ai_engine/`)
 
 ```text
-la_peace_SIH26/
-├── contracts/                  # Canonical JSON Schemas & Event Specs
-│   ├── ai_to_backend.json      # VehicleDetectionEvent, PlateOcrEvent
-│   ├── backend_to_frontend.json# REST & WS response payloads
-│   └── kafka_topics.json       # Event topics definition
-├── ai_engine/                  # Ingestion & Inference Workers (YOLO, ByteTrack, OCR)
-│   ├── configs/
-│   ├── models/
-│   ├── pipelines/
-│   └── main_worker.py
-├── backend/                    # FastAPI & PostGIS Engine
-│   ├── app/
-│   │   ├── api/
-│   │   ├── core/
-│   │   ├── db/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   └── websockets/
-│   ├── scripts/
-│   ├── requirements.txt
-│   └── main.py
-├── frontend/                   # Raw React App (B&W, simple wireframes, raw dumps)
-│   ├── src/
-│   │   ├── components/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── styles/
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   └── vite.config.js
-├── docker/                     # Docker Compose & Container configs
-│   └── docker-compose.yml
-├── .gitignore
-├── README.md                   # Existing project README (UNTOUCHED)
-└── task.md                     # Phase roadmap & task tracker
+ai_engine/
+├── configs/
+│   └── pipeline_config.json        # YOLO, ByteTrack, OCR thresholds
+├── data/
+│   ├── README.md                   # Video placement guide
+│   └── video_testing.mp4           # Active test feed
+├── modules/                        # Scalable Analytics Modules
+│   ├── anpr/
+│   │   ├── __init__.py
+│   │   ├── plate_cropper.py        # Vehicle & plate candidate extraction + CLAHE
+│   │   └── plate_ocr.py            # Indian license plate normalization & regex
+│   ├── speed/
+│   │   ├── __init__.py
+│   │   └── speed_estimator.py      # Pixel-to-meter displacement & EMA smoothing
+│   └── zones/
+│       ├── __init__.py
+│       └── line_cross_detector.py  # Virtual tripwires, in/out count, wrong-way detection
+├── emitters/
+│   ├── __init__.py
+│   └── http_emitter.py             # Asynchronous JSON event dispatcher to FastAPI
+├── run_video_feed.py               # Integrated multi-module pipeline runner
+└── requirements.txt                # Ultralytics, OpenCV, EasyOCR, Requests
 ```
