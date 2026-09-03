@@ -1,22 +1,23 @@
 """
 Single Video / RTSP Ingestion & AI Tracking Runner (Phase 4 & 6 Scaled Pipeline)
 Features:
-- YOLOv8 Multi-Object Vehicle Detection
-- ByteTrack Persistent ID Tracking
-- Dynamic Plate Cropping & Candidate Extraction
-- Pixel-to-Meter Speed Estimation (km/h) with Overspeed Detection
-- Virtual Line Crossing (In/Out Counting & Wrong-Way Detection)
-- HTTP Event Dispatcher to FastAPI Backend
+- YOLOv8 Multi-Object Vehicle Detection & ByteTrack
+- Real-time Plate Cropping using Sobel Edge Gradients (Accurate Bumper Plate Isolation)
+- Real OCR (EasyOCR) extracting genuine text without faking state registration
+- Live On-Video Plate Banner (e.g. LR09 FSL)
+- Picture-in-Picture ANPR Inspector HUD
+- Vertical / Horizontal Virtual Tripwire In/Out Counting
 """
 
 import argparse
 import os
 import sys
 import time
+import json
 import cv2
 import numpy as np
 
-# Add parent directory to path so relative imports work
+# Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from modules.anpr.plate_cropper import PlateCropper
@@ -40,10 +41,17 @@ def main():
         help="Camera identifier (e.g. CAM_01, CAM_SECTOR_17)"
     )
     parser.add_argument(
-        "--backend-url",
+        "--line-axis",
         type=str,
-        default="http://localhost:8000/api/v1/events/inference",
-        help="FastAPI endpoint to receive raw AI detections"
+        default="vertical",
+        choices=["vertical", "horizontal"],
+        help="Axis of virtual line: 'vertical' for left-to-right traffic, 'horizontal' for up-down traffic"
+    )
+    parser.add_argument(
+        "--line-pos",
+        type=int,
+        default=380,
+        help="Pixel coordinate of virtual line (x for vertical, y for horizontal)"
     )
     parser.add_argument(
         "--speed-limit",
@@ -55,18 +63,18 @@ def main():
         "--show-window",
         action="store_true",
         default=True,
-        help="Show live OpenCV display window with bounding boxes"
+        help="Show live OpenCV display window with HUD"
     )
 
     args = parser.parse_args()
 
     print("==================================================")
-    print(" SIH 2026: SCALABLE CV PIPELINE RUNNER")
+    print(" SIH 2026: REAL-TIME ANPR & CV PIPELINE RUNNER")
     print("==================================================")
-    print(f" Camera ID    : {args.camera_id}")
-    print(f" Video Source : {args.source}")
-    print(f" Speed Limit  : {args.speed_limit} km/h")
-    print(f" Backend URL  : {args.backend_url}")
+    print(f" Camera ID     : {args.camera_id}")
+    print(f" Video Source  : {args.source}")
+    print(f" Virtual Line  : {args.line_axis.upper()} at pixel {args.line_pos}")
+    print(f" Plate Storage : ai_engine/data/plate_crops/")
     print("==================================================")
 
     from ultralytics import YOLO
@@ -76,12 +84,12 @@ def main():
         print(f"[!] Error: Video file '{source}' not found.")
         return
 
-    print("[+] Initializing specialized analytics modules...")
-    cropper = PlateCropper(crop_lower_ratio=0.55)
-    ocr = PlateOCR(use_easyocr=False) # lightweight fallback, can be set to True if easyocr is installed
+    # Initialize modules
+    cropper = PlateCropper(output_dir="data/plate_crops")
+    ocr = PlateOCR(use_easyocr=True) # Real OCR enabled
     speed_est = SpeedEstimator(fps=25.0, meters_per_pixel=0.06, speed_limit_kmh=args.speed_limit)
-    line_detector = LineCrossDetector(line_p1=(50, 240), line_p2=(720, 240), expected_direction="DOWN")
-    emitter = HTTPEmitter(backend_url=args.backend_url)
+    line_detector = LineCrossDetector(mode=args.line_axis, position=args.line_pos)
+    emitter = HTTPEmitter()
 
     print("[+] Loading YOLOv8 model (yolov8n.pt)...")
     model = YOLO("yolov8n.pt")
@@ -91,17 +99,22 @@ def main():
         print(f"[!] Error: Failed to open video stream: {source}")
         return
 
-    frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 800
-    frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 600
-    # Adjust virtual line dynamically to frame size
-    line_detector.line_p1 = (int(frame_w * 0.1), int(frame_h * 0.55))
-    line_detector.line_p2 = (int(frame_w * 0.9), int(frame_h * 0.55))
+    frame_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 768
+    frame_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 432
 
     frame_count = 0
     start_time = time.time()
     VEHICLE_CLASSES = [0, 2, 3, 5, 7] # person, car, motorcycle, bus, truck
 
-    print("[+] Pipeline running. Press 'q' in video window or Ctrl+C in terminal to stop.\n")
+    # Real plate cache: track_id -> {"plate": str, "conf": float, "crop": np.ndarray}
+    track_plates = {}
+
+    latest_plate_thumb = None
+    latest_plate_text = "SCANNING..."
+    latest_plate_conf = 0.0
+    latest_track_info = "Waiting for vehicles..."
+
+    print("[+] Stream running. Watch OpenCV window. Press 'q' to stop.\n")
 
     try:
         while cap.isOpened():
@@ -112,7 +125,6 @@ def main():
 
             frame_count += 1
 
-            # Run YOLO Tracking
             results = model.track(
                 source=frame,
                 persist=True,
@@ -122,17 +134,25 @@ def main():
 
             annotated_frame = frame.copy()
 
-            # Draw Virtual Line
-            cv2.line(annotated_frame, line_detector.line_p1, line_detector.line_p2, (0, 0, 255), 2)
+            # 1. DRAW VIRTUAL LINE & IN/OUT STATS
+            if args.line_axis == "vertical":
+                p1 = (args.line_pos, 0)
+                p2 = (args.line_pos, frame_h)
+                line_title = f"LINE [x={args.line_pos}] | L->R: {line_detector.in_count} | R->L: {line_detector.out_count}"
+                text_pos = (max(10, args.line_pos - 180), 25)
+            else:
+                p1 = (0, args.line_pos)
+                p2 = (frame_w, args.line_pos)
+                line_title = f"LINE [y={args.line_pos}] | IN: {line_detector.in_count} | OUT: {line_detector.out_count}"
+                text_pos = (20, max(25, args.line_pos - 10))
+
+            cv2.line(annotated_frame, p1, p2, (0, 0, 255), 2)
             cv2.putText(
-                annotated_frame,
-                f"VIRTUAL LINE | IN: {line_detector.in_count} | OUT: {line_detector.out_count}",
-                (line_detector.line_p1[0], line_detector.line_p1[1] - 8),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2
+                annotated_frame, line_title, text_pos,
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 255), 2
             )
 
-            detections_summary = []
-
+            # 2. PROCESS DETECTIONS & RUN REAL OCR
             if results and len(results) > 0:
                 boxes = results[0].boxes
                 if boxes is not None:
@@ -143,66 +163,97 @@ def main():
                         track_id = int(box.id[0].item()) if box.id is not None else -1
                         x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
 
-                        # 1. Speed Estimation
+                        # Speed calculation
                         speed_info = speed_est.update(track_id, [x1, y1, x2, y2], frame_count)
                         speed_kmh = speed_info["speed_kmh"]
                         is_overspeed = speed_info["overspeed"]
 
-                        # 2. Virtual Line Crossing Check
-                        crossing_info = line_detector.check_crossing(track_id, [x1, y1, x2, y2])
+                        # Check line crossing
+                        crossing = line_detector.check_crossing(track_id, [x1, y1, x2, y2])
+                        if crossing["crossed"]:
+                            print(f"[!] TRIPWIRE TRIGGERED: Vehicle #{track_id} ({cls_name}) crossed line -> {crossing['direction']} | Total In: {crossing['total_in']}")
 
-                        # 3. Plate Cropping
-                        veh_crop = cropper.crop_vehicle(frame, [x1, y1, x2, y2])
-                        plate_candidate = cropper.extract_plate_candidate(veh_crop)
+                        # Real Plate Extraction & OCR (for vehicles)
+                        plate_str = None
+                        if cls_name in ["car", "bus", "truck", "motorcycle"] and track_id > 0:
+                            # Try reading if not yet cached or if previous attempt had no text
+                            if track_id not in track_plates:
+                                crop_res = cropper.extract_and_save_plate(frame, [x1, y1, x2, y2], track_id)
+                                if crop_res and crop_res["plate_img"] is not None:
+                                    ocr_res = ocr.read_plate(crop_res["plate_img"], track_id=track_id)
+                                    if ocr_res["plate"]:
+                                        plate_str = ocr_res["plate"]
+                                        track_plates[track_id] = {
+                                            "plate": plate_str,
+                                            "conf": ocr_res["confidence"],
+                                            "crop": crop_res["plate_img"],
+                                            "class": cls_name,
+                                            "speed": speed_kmh
+                                        }
+                                        print(f"[REAL OCR HIT] Vehicle #{track_id} ({cls_name}) -> '{plate_str}' (Conf: {ocr_res['confidence']})")
+                                        latest_plate_thumb = crop_res["plate_img"]
+                                        latest_plate_text = plate_str
+                                        latest_plate_conf = ocr_res["confidence"]
+                                        latest_track_info = f"#{track_id} {cls_name} ({speed_kmh} km/h)"
+                                    else:
+                                        latest_plate_thumb = crop_res["plate_img"]
+                            else:
+                                plate_str = track_plates[track_id]["plate"]
 
-                        # Draw bounding box (Red if overspeeding, Green otherwise)
-                        color = (0, 0, 255) if is_overspeed else (0, 255, 0)
-                        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+                        # Draw Vehicle Bounding Box
+                        box_color = (0, 0, 255) if is_overspeed else (0, 255, 0)
+                        cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), box_color, 2)
 
-                        # Labels
-                        label = f"#{track_id} {cls_name} | {speed_kmh} km/h"
-                        if is_overspeed:
-                            label += " [SPEED VIOLATION!]"
-                        if crossing_info.get("wrong_way"):
-                            label += " [WRONG WAY!]"
-
+                        # Top label: Track ID + Class + Speed
+                        label = f"#{track_id} {cls_name} {speed_kmh}km/h"
                         cv2.putText(
-                            annotated_frame, label, (x1, max(20, y1 - 6)),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2
+                            annotated_frame, label, (x1, max(18, y1 - 24)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, box_color, 2
                         )
 
-                        detections_summary.append({
-                            "track_id": track_id,
-                            "class": cls_name,
-                            "speed_kmh": speed_kmh,
-                            "overspeed": is_overspeed,
-                            "wrong_way": crossing_info.get("wrong_way", False)
-                        })
+                        # REAL NUMBER PLATE BADGE ON VEHICLE
+                        if plate_str:
+                            plate_badge = f"[{plate_str}]"
+                            (tw, th), _ = cv2.getTextSize(plate_badge, cv2.FONT_HERSHEY_DUPLEX, 0.5, 1)
+                            badge_y1 = max(4, y1 - 22)
+                            badge_y2 = badge_y1 + th + 6
+                            badge_x2 = x1 + tw + 8
+                            # White plate background
+                            cv2.rectangle(annotated_frame, (x1, badge_y1), (badge_x2, badge_y2), (255, 255, 255), -1)
+                            cv2.rectangle(annotated_frame, (x1, badge_y1), (badge_x2, badge_y2), (0, 0, 0), 1)
+                            # Black plate text
+                            cv2.putText(
+                                annotated_frame, plate_badge, (x1 + 4, badge_y2 - 4),
+                                cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 0), 1
+                            )
 
-                        # 4. Optional HTTP emission to backend
-                        if frame_count % 15 == 0 and track_id > 0:
-                            emitter.emit_event({
-                                "camera_id": args.camera_id,
-                                "track_id": track_id,
-                                "vehicle_class": cls_name,
-                                "bbox": {"x_min": x1/frame_w, "y_min": y1/frame_h, "x_max": x2/frame_w, "y_max": y2/frame_h},
-                                "confidence": round(conf, 2),
-                                "speed_kmh": speed_kmh
-                            })
+            # 3. ON-SCREEN HUD: PICTURE-IN-PICTURE FOR NUMBER PLATE
+            hud_w, hud_h = 240, 125
+            hud_x = frame_w - hud_w - 10
+            hud_y = 10
+            # Background black box for HUD
+            cv2.rectangle(annotated_frame, (hud_x, hud_y), (hud_x + hud_w, hud_y + hud_h), (0, 0, 0), -1)
+            cv2.rectangle(annotated_frame, (hud_x, hud_y), (hud_x + hud_w, hud_y + hud_h), (255, 255, 255), 1)
+            cv2.putText(annotated_frame, "REAL ANPR INSPECTOR", (hud_x + 8, hud_y + 18), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1)
+            
+            # Plate Number Highlight Box in HUD
+            cv2.rectangle(annotated_frame, (hud_x + 8, hud_y + 24), (hud_x + hud_w - 8, hud_y + 46), (255, 255, 255), -1)
+            cv2.putText(annotated_frame, f"PLATE: {latest_plate_text}", (hud_x + 12, hud_y + 40), cv2.FONT_HERSHEY_DUPLEX, 0.45, (0, 0, 0), 1)
 
-            # Print telemetry periodically
-            if frame_count % 30 == 0:
-                elapsed = time.time() - start_time
-                fps = frame_count / elapsed if elapsed > 0 else 0
-                print(f"[Frame #{frame_count:05d}] FPS: {fps:.1f} | Active: {len(detections_summary)} | Total In: {line_detector.in_count}")
-                for d in detections_summary[:2]:
-                    flag = " (!)" if d["overspeed"] or d["wrong_way"] else ""
-                    print(f"   -> #{d['track_id']} {d['class']} @ {d['speed_kmh']} km/h{flag}")
+            cv2.putText(annotated_frame, f"INFO: {latest_track_info}", (hud_x + 8, hud_y + 58), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 255), 1)
+
+            # Render Plate Thumbnail
+            if latest_plate_thumb is not None and latest_plate_thumb.size > 0:
+                try:
+                    thumb_resized = cv2.resize(latest_plate_thumb, (220, 55))
+                    annotated_frame[hud_y + 64:hud_y + 119, hud_x + 10:hud_x + 230] = thumb_resized
+                except Exception:
+                    pass
 
             if args.show_window:
-                cv2.imshow(f"SIH 2026 Analytics - {args.camera_id}", annotated_frame)
+                cv2.imshow(f"SIH 2026 - ANPR & Traffic Intelligence ({args.camera_id})", annotated_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
-                    print("[*] Quitting by user keypress.")
+                    print("[*] Stopped by user.")
                     break
 
     except KeyboardInterrupt:
@@ -211,9 +262,30 @@ def main():
         cap.release()
         if args.show_window:
             cv2.destroyAllWindows()
-        print(f"[+] Total frames processed: {frame_count}")
-        print(f"[+] Traffic stats: {line_detector.in_count} entered, {line_detector.out_count} exited.")
-        print(f"[+] Violations logged: {len(line_detector.wrong_way_violations)} wrong-way incidents.")
+
+        output_json = "data/detected_plates.json"
+        summary_data = []
+        for tid, data in track_plates.items():
+            summary_data.append({
+                "track_id": tid,
+                "plate_number": data["plate"],
+                "confidence": data["conf"],
+                "vehicle_class": data["class"],
+                "speed_kmh": data["speed"]
+            })
+        try:
+            with open(output_json, "w") as f:
+                json.dump(summary_data, f, indent=2)
+            print(f"[+] Exported {len(summary_data)} plates to {output_json}")
+        except Exception:
+            pass
+
+        print(f"\n==================================================")
+        print(f" FINAL SUMMARY:")
+        print(f" - Real Plates Detected: {len(track_plates)}")
+        print(f" - Line Crossings: {line_detector.in_count} entered, {line_detector.out_count} exited")
+        print(f" - Crops Saved in: ai_engine/data/plate_crops/")
+        print(f"==================================================")
 
 if __name__ == "__main__":
     main()

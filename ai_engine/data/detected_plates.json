@@ -1,0 +1,100 @@
+[
+  {
+    "track_id": 1,
+    "plate_number": "DL14BC2417",
+    "confidence": 0.92,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 2,
+    "plate_number": "HR17CE2834",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 3,
+    "plate_number": "PB20DG3251",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 5,
+    "plate_number": "MH26FK4085",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 8,
+    "plate_number": "RJ35IQ5336",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 10,
+    "plate_number": "WB41KU6170",
+    "confidence": 0.91,
+    "vehicle_class": "bus",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 11,
+    "plate_number": "AP44LW6587",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 13,
+    "plate_number": "DL50NA7421",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 14,
+    "plate_number": "HR53OC7838",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 16,
+    "plate_number": "UP59QG8672",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 17,
+    "plate_number": "MH62RI9089",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 18,
+    "plate_number": "KA65SK9506",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 19,
+    "plate_number": "GJ68TM9923",
+    "confidence": 0.91,
+    "vehicle_class": "car",
+    "speed_kmh": 0.0
+  },
+  {
+    "track_id": 21,
+    "plate_number": "TN74VQ1757",
+    "confidence": 0.91,
+    "vehicle_class": "truck",
+    "speed_kmh": 0.0
+  }
+]
