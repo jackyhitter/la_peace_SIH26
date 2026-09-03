@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BackendToFrontendContracts",
+  "description": "JSON Schemas for REST API and WebSocket payloads delivered to the raw Frontend",
+  "definitions": {
+    "Camera": {
+      "type": "object",
+      "required": ["id", "name", "rtsp_url", "status", "lat", "lng"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "rtsp_url": { "type": "string" },
+        "stream_url": { "type": "string" },
+        "status": { "type": "string", "enum": ["ONLINE", "OFFLINE", "DEGRADED"] },
+        "fps": { "type": "number" },
+        "bitrate_kbps": { "type": "integer" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "zone": { "type": "string" }
+      }
+    },
+    "VehicleTrajectory": {
+      "type": "object",
+      "required": ["plate_number", "first_seen", "last_seen", "waypoints"],
+      "properties": {
+        "plate_number": { "type": "string" },
+        "vehicle_type": { "type": "string" },
+        "color": { "type": "string" },
+        "first_seen": { "type": "string", "format": "date-time" },
+        "last_seen": { "type": "string", "format": "date-time" },
+        "total_distance_km": { "type": "number" },
+        "waypoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["camera_id", "timestamp", "lat", "lng", "speed_kmh"],
+            "properties": {
+              "camera_id": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "lat": { "type": "number" },
+              "lng": { "type": "number" },
+              "speed_kmh": { "type": "number" },
+              "snapshot_url": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "AlertNotification": {
+      "type": "object",
+      "required": ["alert_id", "alert_type", "severity", "timestamp", "camera_id", "details"],
+      "properties": {
+        "alert_id": { "type": "string" },
+        "alert_type": {
+          "type": "string",
+          "enum": ["STOLEN_VEHICLE", "BLACKLIST_MATCH", "OVERSPEEDING", "WRONG_WAY", "NO_HELMET", "RED_LIGHT_VIOLATION"]
+        },
+        "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "camera_id": { "type": "string" },
+        "plate_number": { "type": "string" },
+        "details": {
+          "type": "object",
+          "properties": {
+            "measured_speed": { "type": "number" },
+            "speed_limit": { "type": "number" },
+            "reason": { "type": "string" },
+            "image_evidence": { "type": "string" }
+          }
+        }
+      }
+    },
+    "TrafficAnalyticsSummary": {
+      "type": "object",
+      "required": ["timestamp", "total_vehicles", "counts_by_class", "avg_speed_kmh"],
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "total_vehicles": { "type": "integer" },
+        "counts_by_class": {
+          "type": "object",
+          "properties": {
+            "car": { "type": "integer" },
+            "motorcycle": { "type": "integer" },
+            "bus": { "type": "integer" },
+            "truck": { "type": "integer" },
+            "auto_rickshaw": { "type": "integer" }
+          }
+        },
+        "avg_speed_kmh": { "type": "number" },
+        "congestion_index": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    }
+  }
+}

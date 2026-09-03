@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KafkaEventTopics",
+  "description": "Event topic registry and routing rules for the distributed CCTV ANPR pipeline",
+  "topics": [
+    {
+      "name": "cctv.raw_inference.events",
+      "partition_key": "camera_id",
+      "description": "High-throughput raw vehicle detections and tracking vectors from YOLO/ByteTrack edge workers"
+    },
+    {
+      "name": "cctv.anpr.plates",
+      "partition_key": "plate_number",
+      "description": "OCR detected plates with character confidence and cropped plate URLs"
+    },
+    {
+      "name": "cctv.cross_camera.journeys",
+      "partition_key": "plate_number",
+      "description": "Re-identified cross-camera vehicle trajectory hops and time transitions"
+    },
+    {
+      "name": "cctv.rule_engine.alerts",
+      "partition_key": "alert_id",
+      "description": "Real-time security and traffic violations (blacklists, speed, red lights, helmets)"
+    },
+    {
+      "name": "cctv.telemetry.camera_health",
+      "partition_key": "camera_id",
+      "description": "Camera online/offline status, FPS drop, black screen, packet drop alerts"
+    }
+  ]
+}
