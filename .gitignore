@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+cityapr.db
+cityapr.db-journal
+
+# Node
+node_modules/
+dist/
+.env.local
+
+# Project-specific
+data/
+weights/
+*.weights
+*.pt
+*.pth
+
+# Misc
+.DS_Store
+*.log

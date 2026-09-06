@@ -1,0 +1,100 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./reset.css";
+
+@theme {
+  --color-bg-base:     #111111;
+  --color-bg-surface:  #161616;
+  --color-bg-raised:   #1E1E1E;
+  --color-bg-overlay:  #242424;
+
+  --color-border-subtle: #2A2A2A;
+  --color-border-active: #3D3D3D;
+
+  --color-text-primary:   #F0F0F0;
+  --color-text-secondary: #888888;
+  --color-text-dim:       #555555;
+
+  --color-signal-green:   #22C55E;
+  --color-signal-amber:   #F59E0B;
+  --color-signal-red:     #EF4444;
+  --color-signal-red-dim: #2A1010;
+
+  --color-plate-bg: #1A1A1A;
+
+  --font-ui:    'Inter', system-ui, sans-serif;
+  --font-serif: 'PT Serif', Georgia, serif;
+  --font-data:  'JetBrains Mono', monospace;
+}
+
+/* Typography utilities */
+.font-ui {
+  font-family: var(--font-ui) !important;
+}
+
+.font-serif {
+  font-family: var(--font-serif) !important;
+}
+
+.font-data {
+  font-family: var(--font-data) !important;
+  letter-spacing: -0.02em;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-active);
+}
+
+/* Camera Pulse */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(1.15);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+/* Skeleton Loading Shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-row {
+  background: linear-gradient(90deg, #161616 25%, #1E1E1E 50%, #161616 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+}
+
+/* Maplibre Canvas Fit */
+.maplibregl-canvas {
+  outline: none;
+}
+
+/* Table Row Hover */
+.table-row-hover:hover {
+  background-color: var(--bg-raised);
+}

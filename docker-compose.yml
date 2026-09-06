@@ -1,0 +1,56 @@
+version: '3.9'
+
+services:
+  db:
+    image: timescale/timescaledb-ha:pg15-latest
+    container_name: cityapr-db
+    environment:
+      POSTGRES_USER: cityapr
+      POSTGRES_PASSWORD: cityapr
+      POSTGRES_DB: cityapr
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/indexes.sql:/docker-entrypoint-initdb.d/02_indexes.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cityapr -d cityapr"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: cityapr-backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://cityapr:cityapr@db:5432/cityapr
+      SECRET_KEY: cityapr-dev-secret-key-super-secure-change-in-prod-2025
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_HOURS: 8
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    image: node:20-alpine
+    container_name: cityapr-frontend
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
