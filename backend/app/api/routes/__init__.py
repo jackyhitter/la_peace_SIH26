@@ -15,3 +15,4 @@ __all__ = [
     "blacklist_router",
     "rto_router",
 ]
+from .ai import router as ai_router

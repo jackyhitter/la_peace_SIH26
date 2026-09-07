@@ -19,6 +19,7 @@ from app.api.routes import (
     analytics_router,
     blacklist_router,
     rto_router,
+    ai_router,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -84,6 +85,7 @@ app.include_router(alerts_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
 app.include_router(blacklist_router, prefix="/api")
 app.include_router(rto_router, prefix="/api")
+app.include_router(ai_router, prefix="/api/ai")
 
 @app.get("/api/health", tags=["health"])
 async def health_check():

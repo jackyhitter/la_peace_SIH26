@@ -1,0 +1,28 @@
+{
+  "pipeline": {
+    "name": "yolo_bytetrack_paddleocr",
+    "version": "1.0.0",
+    "detector": {
+      "model": "yolov8m.pt",
+      "confidence_threshold": 0.45,
+      "device": "cuda:0"
+    },
+    "tracker": {
+      "type": "bytetrack",
+      "track_thresh": 0.5,
+      "track_buffer": 30,
+      "match_thresh": 0.8
+    },
+    "plate_ocr": {
+      "engine": "paddleocr",
+      "lang": "en",
+      "min_confidence": 0.80,
+      "multi_frame_voting": true,
+      "voting_window_frames": 5
+    },
+    "kafka": {
+      "enabled": true,
+      "topic": "cctv.raw_inference.events"
+    }
+  }
+}

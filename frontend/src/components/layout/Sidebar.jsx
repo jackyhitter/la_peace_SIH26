@@ -9,6 +9,7 @@ import {
   Search,
   ShieldAlert,
   LogOut,
+  Cpu,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -24,6 +25,7 @@ export default function Sidebar() {
     { icon: ScrollText, path: '/logs', tooltip: 'Plate Logs' },
     { icon: Search, path: '/search', tooltip: 'Plate Search' },
     { icon: ShieldAlert, path: '/restricted', tooltip: 'Restricted Vehicles' },
+    { icon: Cpu, path: '/ai-detection', tooltip: 'Live AI Detection' },
   ];
 
   return (

@@ -8,6 +8,7 @@ import Alerts from '../pages/Alerts';
 import Logs from '../pages/Logs';
 import PlateSearch from '../pages/PlateSearch';
 import RestrictedVehicles from '../pages/RestrictedVehicles';
+import AIDetection from '../pages/AIDetection';
 import { useAuthStore } from '../store/authStore';
 
 function ProtectedRoute({ children }) {
@@ -58,6 +59,10 @@ export const router = createBrowserRouter([
       {
         path: 'restricted',
         element: <RestrictedVehicles />,
+      },
+      {
+        path: 'ai-detection',
+        element: <AIDetection />,
       },
       {
         path: '*',
