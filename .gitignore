@@ -9,11 +9,14 @@ dist/
 dist-ssr/
 *.local
 
-# Python
+# Python & ML Models
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+*.pt
+*.onnx
+data/
 
 # IDE & OS
 .idea/
