@@ -72,7 +72,7 @@ python run_video_feed.py --source data/video_testing.mp4
 ## Team & Credits
 
 - **Project Lead "Anunay Naman"**: Overall architecture, AI pipeline integration, Backend infrastructure, and advanced Frontend UI/UX polish.
-- **Pranjul**: Core contributions and project development.
+- **Pranjul**: Core contributions, Model and project development.
 - **Shivam**: Frontend development (initial implementations).
 
 ## Default Credentials
