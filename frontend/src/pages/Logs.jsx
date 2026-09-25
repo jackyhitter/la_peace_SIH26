@@ -1,115 +1,112 @@
 import React, { useState, useEffect } from 'react';
 import PageWrapper from '../components/layout/PageWrapper';
-import { Table, TableHead, TableHeader, TableBody, TableSkeletonRows } from '../components/ui/Table';
-import LogRow from '../components/plates/LogRow';
-import Button from '../components/ui/Button';
+import { Table, TableHead, TableHeader, TableBody } from '../components/ui/Table';
 import EmptyState from '../components/ui/EmptyState';
-import api from '../lib/api';
-import { CAMERA_NODES, DEMO_DAY } from '../lib/constants';
-import { ScrollText, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { ScrollText, Filter } from 'lucide-react';
+import { formatTimeOnly } from '../lib/utils';
+import { useAuth } from '../hooks/useAuth';
+
+// Simulated initial audit events
+const INITIAL_EVENTS = [
+  {
+    id: 'evt-1',
+    timestamp: new Date(Date.now() - 5000).toISOString(),
+    actor: 'Admin',
+    event: 'BLACKLIST MATCH',
+    entity: 'PB10AB1234 (CAM-07)',
+    action: 'Alert Generated'
+  },
+  {
+    id: 'evt-2',
+    timestamp: new Date(Date.now() - 14000).toISOString(),
+    actor: 'System',
+    event: 'CAMERA STATUS',
+    entity: 'CAM-12',
+    action: 'Changed to OFFLINE'
+  },
+  {
+    id: 'evt-3',
+    timestamp: new Date(Date.now() - 45000).toISOString(),
+    actor: 'Operator',
+    event: 'ALERT RESOLVED',
+    entity: 'Alert #1842',
+    action: 'Marked as False Positive'
+  },
+  {
+    id: 'evt-4',
+    timestamp: new Date(Date.now() - 86000).toISOString(),
+    actor: 'Chief Controller',
+    event: 'WATCHLIST UPDATED',
+    entity: 'HR26BN0093',
+    action: 'Added to Watchlist'
+  }
+];
 
 export default function Logs() {
-  const [logs, setLogs] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
-  const [selectedCamera, setSelectedCamera] = useState('all');
-  const [confidenceMin, setConfidenceMin] = useState('all');
-  const [selectedDate, setSelectedDate] = useState(DEMO_DAY);
-  const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState(INITIAL_EVENTS);
+  const [filter, setFilter] = useState('all');
 
-  const fetchLogs = async (currentPage = page) => {
-    try {
-      setLoading(true);
-      const params = {
-        page: currentPage,
-        limit: 50,
-      };
-
-      if (selectedCamera !== 'all') {
-        params.camera_id = selectedCamera;
-      }
-      if (confidenceMin !== 'all') {
-        params.confidence_min = parseFloat(confidenceMin);
-      }
-      if (selectedDate) {
-        params.date = selectedDate;
-      }
-
-      const res = await api.get('/api/plates/logs', { params });
-      setLogs(res.data?.items || []);
-      setTotal(res.data?.total || 0);
-      setPages(res.data?.pages || 1);
-      setPage(res.data?.page || 1);
-    } catch (err) {
-      // Fallback
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Listen for custom events dispatched on the window object (centralized event bus simulation)
   useEffect(() => {
-    fetchLogs(1);
-  }, [selectedCamera, confidenceMin, selectedDate]);
+    const handleAuditLog = (e) => {
+      const newEvent = {
+        id: `evt-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        actor: e.detail.actor || 'System',
+        event: e.detail.event || 'SYSTEM EVENT',
+        entity: e.detail.entity || 'Unknown',
+        action: e.detail.action || 'Logged'
+      };
+      setEvents((prev) => [newEvent, ...prev].slice(0, 100)); // Keep last 100
+    };
 
-  const handlePageChange = (newPage) => {
-    if (newPage < 1 || newPage > pages) return;
-    setPage(newPage);
-    fetchLogs(newPage);
-  };
+    window.addEventListener('AUDIT_LOG_EVENT', handleAuditLog);
+    
+    // Simulate some live events arriving randomly
+    const simInterval = setInterval(() => {
+      if (Math.random() > 0.8) {
+        window.dispatchEvent(new CustomEvent('AUDIT_LOG_EVENT', {
+          detail: {
+            actor: 'System',
+            event: 'VEHICLE DETECTED',
+            entity: `CAM-${Math.floor(Math.random() * 46 + 1).toString().padStart(2, '0')}`,
+            action: 'Trajectory Updated'
+          }
+        }));
+      }
+    }, 8000);
 
-  const startRange = total === 0 ? 0 : (page - 1) * 50 + 1;
-  const endRange = Math.min(page * 50, total);
+    return () => {
+      window.removeEventListener('AUDIT_LOG_EVENT', handleAuditLog);
+      clearInterval(simInterval);
+    };
+  }, []);
+
+  const filteredEvents = filter === 'all' 
+    ? events 
+    : events.filter(e => e.event.includes(filter));
 
   return (
     <PageWrapper
-      title="Plate Logs"
-      subtitle="Chronological audit trail of all optical plate reads across Chandigarh cameras"
+      title="Live Audit Log"
+      subtitle="Real-time chronological audit trail of all system and operator actions"
       fullWidth
       actions={
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Camera filter */}
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-[12px] text-[#888888] font-ui">
             <Filter size={13} strokeWidth={1.5} />
-            <span>Camera:</span>
+            <span>Event Type:</span>
             <select
-              value={selectedCamera}
-              onChange={(e) => setSelectedCamera(e.target.value)}
-              className="bg-[#242424] border border-[#2A2A2A] rounded px-2 py-1 text-[#F0F0F0] focus:outline-none focus:border-[#3D3D3D] max-w-[160px]"
-            >
-              <option value="all">All Cameras (46)</option>
-              {CAMERA_NODES.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.id} - {c.sector}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Confidence Filter */}
-          <div className="flex items-center gap-1.5 text-[12px] text-[#888888] font-ui">
-            <span>Confidence:</span>
-            <select
-              value={confidenceMin}
-              onChange={(e) => setConfidenceMin(e.target.value)}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
               className="bg-[#242424] border border-[#2A2A2A] rounded px-2 py-1 text-[#F0F0F0] focus:outline-none focus:border-[#3D3D3D]"
             >
-              <option value="all">All Confidence</option>
-              <option value="90">High (&gt; 90%)</option>
-              <option value="75">Medium (&gt; 75%)</option>
-              <option value="50">Low (&gt; 50%)</option>
+              <option value="all">All Events</option>
+              <option value="BLACKLIST">Blacklist</option>
+              <option value="ALERT">Alerts</option>
+              <option value="CAMERA">Cameras</option>
+              <option value="WATCHLIST">Watchlist</option>
             </select>
-          </div>
-
-          {/* Date Filter */}
-          <div className="flex items-center gap-1.5 text-[12px] text-[#888888] font-ui">
-            <span>Date:</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-[#242424] border border-[#2A2A2A] rounded px-2 py-1 text-[#F0F0F0] focus:outline-none focus:border-[#3D3D3D] text-[12px] font-data"
-            />
           </div>
         </div>
       }
@@ -118,66 +115,47 @@ export default function Logs() {
         <Table>
           <TableHead>
             <tr>
-              <TableHeader>Plate Number</TableHeader>
-              <TableHeader mono>Camera ID</TableHeader>
-              <TableHeader>Sector / Location</TableHeader>
-              <TableHeader mono>Time (IST)</TableHeader>
-              <TableHeader>OCR Confidence</TableHeader>
-              <TableHeader>Restricted</TableHeader>
+              <TableHeader mono>TIME</TableHeader>
+              <TableHeader>ACTOR</TableHeader>
+              <TableHeader>EVENT</TableHeader>
+              <TableHeader>ENTITY</TableHeader>
+              <TableHeader>ACTION</TableHeader>
             </tr>
           </TableHead>
           <TableBody>
-            {loading ? (
-              <TableSkeletonRows columns={6} rows={10} />
-            ) : logs.length > 0 ? (
-              logs.map((log) => <LogRow key={log.id} log={log} />)
+            {filteredEvents.length > 0 ? (
+              filteredEvents.map((evt) => (
+                <tr key={evt.id} className="border-b border-[#2A2A2A] hover:bg-[#1E1E1E] transition-colors">
+                  <td className="px-4 py-3 text-[12px] text-[#888888] font-data whitespace-nowrap">
+                    {formatTimeOnly(evt.timestamp)}
+                  </td>
+                  <td className="px-4 py-3 text-[13px] text-[#DEDEDE] font-ui whitespace-nowrap">
+                    {evt.actor}
+                  </td>
+                  <td className="px-4 py-3 text-[12px] font-bold text-[#F0F0F0] font-ui whitespace-nowrap">
+                    {evt.event}
+                  </td>
+                  <td className="px-4 py-3 text-[13px] text-[#DEDEDE] font-ui font-medium">
+                    {evt.entity}
+                  </td>
+                  <td className="px-4 py-3 text-[13px] text-[#888888] font-ui">
+                    {evt.action}
+                  </td>
+                </tr>
+              ))
             ) : (
               <tr>
-                <td colSpan={6} className="p-8">
+                <td colSpan={5} className="p-8">
                   <EmptyState
                     icon={ScrollText}
-                    title="No plate events recorded"
-                    description="No optical plate reads match the selected date and filter criteria."
+                    title="No audit events found"
+                    description="No events match the selected filter."
                   />
                 </td>
               </tr>
             )}
           </TableBody>
         </Table>
-
-        {/* Pagination Footer */}
-        <div className="flex items-center justify-between px-4 py-3 border-t border-[#2A2A2A] bg-[#161616] font-ui">
-          <span className="text-[12px] text-[#888888]">
-            Showing <span className="font-data text-[#F0F0F0]">{startRange}–{endRange}</span> of{' '}
-            <span className="font-data text-[#F0F0F0]">{total.toLocaleString('en-IN')}</span> reads
-          </span>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1 || loading}
-              onClick={() => handlePageChange(page - 1)}
-              className="h-8"
-            >
-              <ChevronLeft size={14} strokeWidth={1.5} className="mr-1" />
-              Previous
-            </Button>
-            <span className="text-[12px] text-[#888888] font-data px-1">
-              {page} / {pages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= pages || loading}
-              onClick={() => handlePageChange(page + 1)}
-              className="h-8"
-            >
-              Next
-              <ChevronRight size={14} strokeWidth={1.5} className="ml-1" />
-            </Button>
-          </div>
-        </div>
       </div>
     </PageWrapper>
   );

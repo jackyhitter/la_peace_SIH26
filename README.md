@@ -54,6 +54,27 @@ pip install -r requirements.txt
 python run_video_feed.py --source data/video_testing.mp4
 ```
 
+## Features
+
+- **Live Network Map**: Real-time geolocation of active traffic cameras via a dynamic interactive map.
+- **Intelligent ANPR**: Automatic Number Plate Recognition powered by YOLOv8 and EasyOCR, capable of operating on live traffic video streams.
+- **Traffic Telemetry**: Instant capture of vehicle speeds, trajectory, and OCR confidence levels.
+- **RTO Database Lookup**: Real-time cross-referencing to flag blacklisted or stolen vehicles.
+- **Control Room Dashboard**: High-density, cyber-monochrome UI styled specifically for municipal and ITS (Intelligent Transport Systems) operations.
+- **Persistent Search History**: Local caching for recent vehicle plate queries.
+
+## Tech Stack
+
+- **Frontend**: React.js, Vite, TailwindCSS, Deck.GL (Geospatial Mapping), MapLibre.
+- **Backend**: FastAPI, SQLite, SQLAlchemy, Uvicorn, WebSockets.
+- **AI / Computer Vision**: Python, YOLOv8, EasyOCR, OpenCV, Flask.
+
+## Team & Credits
+
+- **Project Lead**: Overall architecture, AI pipeline integration, Backend infrastructure, and advanced Frontend UI/UX polish.
+- **Pranjul**: Core contributions and project development.
+- **Shivam**: Frontend development (initial implementations).
+
 ## Default Credentials
 - **Username:** `admin`
 - **Password:** `admin123`

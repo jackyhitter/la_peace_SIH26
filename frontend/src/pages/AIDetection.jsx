@@ -111,16 +111,30 @@ export default function AIDetection() {
       subtitle="Multi-channel ANPR inference pipeline with Bayesian consensus, forensic anomaly detection, and tactical pursuit"
       fullWidth={true}
       actions={
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 text-[11px] font-mono font-medium bg-[#1A1A1A] text-[#22C55E] px-2.5 py-1 rounded border border-[#22C55E]/30">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
-            AI ENGINE ONLINE
-          </span>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer group">
+            <div className="relative">
+              <input type="checkbox" className="sr-only peer" />
+              <div className="w-8 h-4 bg-[#2A2A2A] rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[#888888] peer-checked:after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[#3E7BFA]"></div>
+            </div>
+            <span className="text-[11px] font-mono font-medium text-[#888888] group-hover:text-[#F0F0F0] transition-colors">
+              Enable Cross-Camera ReID
+            </span>
+          </label>
 
-          <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-[#CCCCCC] bg-[#1A1A1A] px-2.5 py-1 rounded border border-[#333333]">
-            <Radio size={12} className="text-[#22C55E]" />
-            4 FEEDS ACTIVE
-          </span>
+          <div className="w-[1px] h-4 bg-[#2A2A2A]" />
+
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-[11px] font-mono font-medium bg-[#1A1A1A] text-[#22C55E] px-2.5 py-1 rounded border border-[#22C55E]/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+              AI ENGINE ONLINE
+            </span>
+
+            <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-[#CCCCCC] bg-[#1A1A1A] px-2.5 py-1 rounded border border-[#333333]">
+              <Radio size={12} className="text-[#22C55E]" />
+              4 FEEDS ACTIVE
+            </span>
+          </div>
         </div>
       }
     >

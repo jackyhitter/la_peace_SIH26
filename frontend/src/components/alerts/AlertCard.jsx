@@ -1,18 +1,35 @@
 import React, { useState } from 'react';
 import { cn, formatTimeOnly } from '../../lib/utils';
-import PlateTag from '../plates/PlateTag';
+import StatusDot from '../ui/StatusDot';
 
 export default function AlertCard({ alert, onResolve }) {
   const [isResolving, setIsResolving] = useState(false);
-  const isCritical = alert.severity?.toLowerCase() === 'critical';
+  
+  const getSeverityStyle = (severity) => {
+    switch (severity?.toLowerCase()) {
+      case 'critical': return 'text-[#EF4444]';
+      case 'warning': return 'text-[#F59E0B]';
+      case 'info': return 'text-[#3B82F6]';
+      default: return 'text-[#888888]';
+    }
+  };
+
+  const getSeverityBg = (severity) => {
+    switch (severity?.toLowerCase()) {
+      case 'critical': return 'bg-[#EF4444]';
+      case 'warning': return 'bg-[#F59E0B]';
+      case 'info': return 'bg-[#3B82F6]';
+      default: return 'bg-[#888888]';
+    }
+  };
 
   const formatAlertType = (type) => {
     switch (type) {
-      case 'blacklisted_vehicle': return 'Blacklisted Vehicle';
-      case 'camera_fault': return 'Camera Offline';
-      case 'wrong_way': return 'Wrong-Way Transit';
-      case 'speeding': return 'Speed Violation';
-      default: return type?.replace(/_/g, ' ') || 'Alert';
+      case 'blacklisted_vehicle': return 'BLACKLIST MATCH';
+      case 'camera_fault': return 'CAMERA FAULT';
+      case 'wrong_way': return 'WRONG WAY';
+      case 'speeding': return 'SPEEDING';
+      default: return (type?.replace(/_/g, ' ') || 'ALERT').toUpperCase();
     }
   };
 
@@ -22,54 +39,52 @@ export default function AlertCard({ alert, onResolve }) {
     if (onResolve) await onResolve(alert.id);
   };
 
+  const severityColor = getSeverityStyle(alert.severity);
+  const severityBg = getSeverityBg(alert.severity);
+
   return (
     <div
       className={cn(
-        // Card surface: #1C1C1C gives clear separation from #111111 panel (17 lightness delta)
-        // Reduced to px-4 py-4 (16px) — large enough to breathe, not so much it feels hollow
-        'relative rounded-[5px] px-4 py-4 transition-all duration-200',
-        'bg-[#1C1C1C] border border-[#272727]',
-        // Left border is the ONLY colour accent — no coloured badge/text competing with it
-        'border-l-[3px]',
-        isCritical ? 'border-l-[#EF4444]' : 'border-l-[#F59E0B]',
+        'group relative px-5 py-4 transition-all duration-150 hover:bg-[#1E1E1E] cursor-pointer flex flex-col font-ui',
         isResolving && 'opacity-30 pointer-events-none'
       )}
     >
-      {/* ── Row 1: severity label + timestamp ── */}
-      {/* justify-between kept but severity text is now muted (80% opacity) so it
-          doesn't fight with the title below. Bullet removed — left border already signals. */}
-      <div className="flex items-center justify-between mb-2.5">
-        <span
-          className={cn(
-            'text-[10px] font-semibold uppercase tracking-[0.08em] font-ui',
-            isCritical ? 'text-[#EF4444]/80' : 'text-[#F59E0B]/80'
-          )}
-        >
-          {isCritical ? 'Critical' : 'Warning'}
-        </span>
-        {/* Timestamp dimmed further (#404040) so it reads as pure metadata */}
-        <span className="text-[10px] text-[#404040] font-data tabular-nums">
-          {formatTimeOnly(alert.created_at)}
+      {/* Header: Dot + Title */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className={`w-2 h-2 rounded-full ${severityBg} shadow-[0_0_8px_rgba(0,0,0,0.5)]`} />
+        <span className={`text-[12px] font-bold tracking-wider ${severityColor}`}>
+          {formatAlertType(alert.type)}
         </span>
       </div>
 
-      {/* ── Row 2: Alert title — primary read target ── */}
-      {/* Dropped from mb-4 to mb-3; 13px semibold is the visual anchor of the card */}
-      <p className="text-[13px] font-semibold text-[#DEDEDE] font-ui leading-snug mb-3">
-        {formatAlertType(alert.type)}
-      </p>
+      {/* Description */}
+      <div className="text-[13px] text-[#DEDEDE] leading-snug mb-2 pl-4">
+        {alert.plate_number ? (
+          <>{alert.plate_number} detected at {alert.camera_id}</>
+        ) : (
+          <>{alert.camera_label || alert.camera_id}</>
+        )}
+      </div>
 
-      {/* ── Row 3: Plate chip OR camera label as context fallback ── */}
-      {/* camera_label shown for camera_fault alerts that have no plate — adds useful context */}
-      {alert.plate_number ? (
-        <PlateTag plate={alert.plate_number} size="sm" />
-      ) : alert.camera_label ? (
-        <span className="text-[10px] text-[#484848] font-data tracking-wide">
-          {alert.camera_label}
-        </span>
-      ) : (
-        <span className="text-[10px] text-[#333333] font-data tracking-widest">NO PLATE</span>
-      )}
+      {/* Footer Metadata */}
+      <div className="flex items-center justify-between text-[11px] font-data text-[#888888] pl-4">
+        <div className="flex items-center gap-1.5">
+          <span>{alert.camera_label?.split('–')[0]?.trim() || alert.camera_id}</span>
+          <span>·</span>
+          <span>{formatTimeOnly(alert.created_at)}</span>
+        </div>
+        
+        {alert.status === 'active' ? (
+          <button 
+            onClick={handleResolve}
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-[#3B82F6] hover:text-[#60A5FA] uppercase tracking-wider font-bold"
+          >
+            Resolve
+          </button>
+        ) : (
+          <span className="text-[#22C55E] uppercase tracking-wider font-bold">Resolved</span>
+        )}
+      </div>
     </div>
   );
 }

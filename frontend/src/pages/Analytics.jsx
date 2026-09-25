@@ -59,11 +59,13 @@ export default function Analytics() {
             label="Vehicles Today"
             value={summary?.vehicles_today ? summary.vehicles_today.toLocaleString('en-IN') : '2,847'}
             subtext="Aggregated across 46 nodes"
+            trend="up"
           />
           <StatCard
             label="Plates Read Accuracy"
             value={`${summary?.ocr_accuracy || 94.3}%`}
             subtext="Benchmark validation run"
+            trend="neutral"
           />
           <StatCard
             label="Active Cameras"
@@ -74,6 +76,7 @@ export default function Analytics() {
             label="Alerts Today"
             value={summary?.alerts_today || 7}
             subtext="5 active · 2 resolved"
+            trend="down"
           />
         </div>
 

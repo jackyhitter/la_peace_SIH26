@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { DeckGL } from '@deck.gl/react';
-import { ScatterplotLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, IconLayer } from '@deck.gl/layers';
 import maplibregl from 'maplibre-gl';
 import { CAMERA_NODES, CHANDIGARH_CENTER } from '../../lib/constants';
-import CameraPopup from './CameraPopup';
 import Minimap from './Minimap';
 import { Plus, Minus, RotateCcw } from 'lucide-react';
 
@@ -19,10 +18,8 @@ const INITIAL_VIEW_STATE = {
   minZoom: 10,
 };
 
-export default function MainMap() {
+export default function MainMap({ selectedCamera, onSelectCamera }) {
   const [viewState, setViewState] = useState(INITIAL_VIEW_STATE);
-  const [selectedCamera, setSelectedCamera] = useState(null);
-  const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
 
@@ -59,20 +56,32 @@ export default function MainMap() {
     }
   }, [viewState]);
 
+  // Fly to selected camera
+  useEffect(() => {
+    if (selectedCamera && selectedCamera.coords) {
+      setViewState((prev) => ({
+        ...prev,
+        longitude: selectedCamera.coords[0],
+        latitude: selectedCamera.coords[1],
+        zoom: 16,
+        transitionDuration: 1000
+      }));
+    } else {
+      setViewState(INITIAL_VIEW_STATE);
+    }
+  }, [selectedCamera]);
+
   // Handle camera marker click
   const handleCameraClick = useCallback((info) => {
     if (info?.object) {
-      setSelectedCamera(info.object);
-      setPopupPos({ x: info.x, y: info.y });
+      if (onSelectCamera) onSelectCamera(info.object);
     } else {
-      setSelectedCamera(null);
+      if (onSelectCamera) onSelectCamera(null);
     }
-  }, []);
+  }, [onSelectCamera]);
 
-  // Close popup if viewport moves significantly
   const onViewStateChange = useCallback(({ viewState: nextViewState }) => {
     setViewState(nextViewState);
-    setSelectedCamera(null);
   }, []);
 
   // Zoom controls
@@ -86,27 +95,33 @@ export default function MainMap() {
 
   const handleResetView = () => {
     setViewState(INITIAL_VIEW_STATE);
+    if (onSelectCamera) onSelectCamera(null);
   };
 
   // Deck.gl Layers
   const layers = [
-    // Scatterplot Layer for Camera Nodes — plain status dots, no glow/heatmap
     new ScatterplotLayer({
       id: 'camera-nodes',
       data: CAMERA_NODES,
       getPosition: (d) => d.coords,
-      getFillColor: (d) =>
-        d.status === 'fault' ? [180, 120, 40, 220] : [50, 140, 90, 220],
+      getFillColor: (d) => {
+        if (selectedCamera?.id === d.id) return [59, 130, 246, 255]; // Highlight color
+        return d.status === 'fault' ? [180, 120, 40, 220] : [50, 140, 90, 220];
+      },
       getLineColor: [15, 21, 32, 255],
       lineWidthMinPixels: 1,
       stroked: true,
-      getRadius: 10,
+      getRadius: (d) => (selectedCamera?.id === d.id ? 15 : 10),
       radiusMinPixels: 4,
-      radiusMaxPixels: 7,
+      radiusMaxPixels: 9,
       pickable: true,
       onClick: handleCameraClick,
       autoHighlight: true,
       highlightColor: [62, 123, 250, 240],
+      updateTriggers: {
+        getFillColor: selectedCamera?.id,
+        getRadius: selectedCamera?.id
+      }
     }),
   ];
 
@@ -126,18 +141,12 @@ export default function MainMap() {
         controller={{ doubleClickZoom: false, dragRotate: false }}
         layers={layers}
         getCursor={({ isHovering }) => (isHovering ? 'pointer' : 'default')}
-        onClick={() => setSelectedCamera(null)}
+        onClick={(info) => {
+          if (!info.object && onSelectCamera) {
+            onSelectCamera(null);
+          }
+        }}
       />
-
-      {/* Camera Inspection Popup */}
-      {selectedCamera && (
-        <CameraPopup
-          camera={selectedCamera}
-          x={popupPos.x}
-          y={popupPos.y}
-          onClose={() => setSelectedCamera(null)}
-        />
-      )}
 
       {/* Minimap (Bottom-Left) */}
       <Minimap viewport={viewState} />

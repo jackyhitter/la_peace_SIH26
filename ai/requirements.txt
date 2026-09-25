@@ -6,3 +6,4 @@ pillow>=10.0.0
 # OCR: PaddleOCR or EasyOCR
 easyocr>=1.7.0
 flask>=2.0.0
+Flask-Cors>=4.0.0
